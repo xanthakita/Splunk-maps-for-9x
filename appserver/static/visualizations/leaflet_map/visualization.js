@@ -49,33 +49,99 @@ define([
         },
         
         formatData: function(data, config) {
-            // Check if we have data
-            if (!data || !data.fields || !data.rows || data.rows.length === 0) {
-                return { error: 'No data available' };
+            console.log('=== formatData called ===');
+            console.log('Data object:', data);
+            console.log('Config object:', config);
+            
+            // Check if data exists
+            if (!data) {
+                console.error('ERROR: data is null or undefined');
+                return { error: 'No data available - data object is null' };
             }
             
-            // Get field indices
-            const fields = data.fields.map(f => f.name);
-            const latIndex = this._findFieldIndex(fields, ['latitude', 'lat', 'Latitude']);
-            const lonIndex = this._findFieldIndex(fields, ['longitude', 'lon', 'lng', 'Longitude']);
-            const descIndex = this._findFieldIndex(fields, ['description', 'desc', 'Description']);
-            const categoryIndex = this._findFieldIndex(fields, ['category', 'type', 'Category', 'Type']);
+            // Log data structure
+            console.log('Data keys:', Object.keys(data));
+            console.log('data.fields:', data.fields);
+            console.log('data.rows:', data.rows);
             
+            // Check if we have fields
+            if (!data.fields) {
+                console.error('ERROR: data.fields is missing');
+                return { error: 'No data available - fields are missing' };
+            }
+            
+            // Check if we have rows
+            if (!data.rows) {
+                console.error('ERROR: data.rows is missing');
+                return { error: 'No data available - rows are missing' };
+            }
+            
+            // Log field and row counts
+            console.log('Number of fields:', data.fields.length);
+            console.log('Number of rows:', data.rows.length);
+            
+            // Check if rows is empty
+            if (data.rows.length === 0) {
+                console.warn('WARNING: data.rows is empty');
+                return { error: 'No data available - no rows returned from search' };
+            }
+            
+            // Get field names
+            const fields = data.fields.map(f => f.name);
+            console.log('Field names:', fields);
+            
+            // Find field indices
+            const latIndex = this._findFieldIndex(fields, ['latitude', 'lat', 'Latitude', '_geo_lat']);
+            const lonIndex = this._findFieldIndex(fields, ['longitude', 'lon', 'lng', 'Longitude', '_geo_lon']);
+            const descIndex = this._findFieldIndex(fields, ['description', 'desc', 'Description', 'name', 'Name']);
+            const categoryIndex = this._findFieldIndex(fields, ['category', 'type', 'Category', 'Type', 'layer', 'Layer']);
+            const colorIndex = this._findFieldIndex(fields, ['color', 'Color', 'colour', 'Colour']);
+            
+            console.log('Field indices found:');
+            console.log('  latIndex:', latIndex, '(field:', latIndex !== -1 ? fields[latIndex] : 'NOT FOUND', ')');
+            console.log('  lonIndex:', lonIndex, '(field:', lonIndex !== -1 ? fields[lonIndex] : 'NOT FOUND', ')');
+            console.log('  descIndex:', descIndex, '(field:', descIndex !== -1 ? fields[descIndex] : 'NOT FOUND', ')');
+            console.log('  categoryIndex:', categoryIndex, '(field:', categoryIndex !== -1 ? fields[categoryIndex] : 'NOT FOUND', ')');
+            console.log('  colorIndex:', colorIndex, '(field:', colorIndex !== -1 ? fields[colorIndex] : 'NOT FOUND', ')');
+            
+            // Check for required fields
             if (latIndex === -1 || lonIndex === -1) {
-                return { error: 'Required fields not found. Please include latitude and longitude fields.' };
+                const errorMsg = 'Required fields not found. Please include latitude and longitude fields. Available fields: ' + fields.join(', ');
+                console.error('ERROR:', errorMsg);
+                return { error: errorMsg };
+            }
+            
+            // Log first row as sample
+            if (data.rows.length > 0) {
+                console.log('Sample row (first row):', data.rows[0]);
             }
             
             // Process rows into layer groups
             const processedData = {};
+            let validRows = 0;
+            let invalidRows = 0;
             
-            data.rows.forEach(row => {
+            data.rows.forEach((row, rowIndex) => {
                 const lat = parseFloat(row[latIndex]);
                 const lon = parseFloat(row[lonIndex]);
                 
+                // Debug first few rows
+                if (rowIndex < 3) {
+                    console.log(`Row ${rowIndex}:`, row);
+                    console.log(`  lat (${fields[latIndex]}):`, row[latIndex], '-> parsed:', lat);
+                    console.log(`  lon (${fields[lonIndex]}):`, row[lonIndex], '-> parsed:', lon);
+                }
+                
                 // Skip invalid coordinates
                 if (isNaN(lat) || isNaN(lon)) {
+                    invalidRows++;
+                    if (rowIndex < 3) {
+                        console.warn(`  SKIPPED: Invalid coordinates`);
+                    }
                     return;
                 }
+                
+                validRows++;
                 
                 // Get category/type (default to 'other' if not specified)
                 let category = categoryIndex !== -1 ? row[categoryIndex] : 'other';
@@ -84,18 +150,22 @@ define([
                 // Get description
                 const description = descIndex !== -1 ? row[descIndex] : 'No description';
                 
+                // Get custom color if specified
+                const customColor = colorIndex !== -1 ? row[colorIndex] : null;
+                
                 // Create point data with all fields
                 const pointData = {
                     lat: lat,
                     lon: lon,
                     description: description,
                     category: category,
+                    customColor: customColor,
                     fields: {}
                 };
                 
                 // Add all other fields as additional data
                 fields.forEach((field, index) => {
-                    if (index !== latIndex && index !== lonIndex && index !== descIndex && index !== categoryIndex) {
+                    if (index !== latIndex && index !== lonIndex && index !== descIndex && index !== categoryIndex && index !== colorIndex) {
                         pointData.fields[field] = row[index];
                     }
                 });
@@ -107,6 +177,22 @@ define([
                 processedData[category].push(pointData);
             });
             
+            console.log('Processing summary:');
+            console.log('  Valid rows:', validRows);
+            console.log('  Invalid rows:', invalidRows);
+            console.log('  Categories found:', Object.keys(processedData));
+            Object.keys(processedData).forEach(cat => {
+                console.log(`    ${cat}: ${processedData[cat].length} points`);
+            });
+            
+            // Check if we got any valid data
+            if (validRows === 0) {
+                const errorMsg = 'No valid data points found. All rows had invalid coordinates.';
+                console.error('ERROR:', errorMsg);
+                return { error: errorMsg };
+            }
+            
+            console.log('=== formatData completed successfully ===');
             return processedData;
         },
         
@@ -162,40 +248,63 @@ define([
         },
         
         updateView: function(data, config) {
+            console.log('=== updateView called ===');
+            console.log('Received data:', data);
+            console.log('Received config:', config);
+            
             // Clear any existing error messages
             this.$el.find('.error-message').remove();
             
             // Format the data
+            console.log('Calling formatData...');
             const formattedData = this.formatData(data, config);
+            console.log('formatData returned:', formattedData);
             
             // Check for errors
             if (formattedData.error) {
+                console.error('formatData returned error:', formattedData.error);
                 this._showError(formattedData.error);
                 return;
             }
             
             // Initialize map if not already created
             if (!this.map) {
+                console.log('Map not initialized, initializing now...');
                 this._initializeMap();
+            } else {
+                console.log('Map already initialized');
             }
             
             // Clear existing layers
+            console.log('Clearing existing layers...');
             this._clearLayers();
             
             // Add data to map
+            console.log('Adding data to map...');
             this._addDataToMap(formattedData);
             
             // Update layer controls
+            console.log('Updating layer controls...');
             this._updateLayerControls();
+            
+            console.log('=== updateView completed ===');
         },
         
         _initializeMap: function() {
+            console.log('_initializeMap called');
+            console.log('this.$el:', this.$el);
+            
             const mapContainer = this.$el.find('#leaflet-map');
+            console.log('Map container found:', mapContainer.length > 0, mapContainer);
             
             if (mapContainer.length === 0) {
+                console.error('ERROR: Map container not found!');
+                console.log('Available elements in this.$el:', this.$el.html());
                 this._showError('Map container not found');
                 return;
             }
+            
+            console.log('Creating Leaflet map...');
             
             // Create map centered on the United States
             this.map = L.map(mapContainer[0], {
@@ -205,22 +314,31 @@ define([
                 scrollWheelZoom: true
             });
             
+            console.log('Map created:', this.map);
+            
             // Add OpenStreetMap tile layer
+            console.log('Adding tile layer...');
             L.tileLayer('https://upload.wikimedia.org/wikipedia/commons/thumb/8/87/Tissot_mercator.png/400px-Tissot_mercator.png', {
                 attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
                 maxZoom: 19,
                 minZoom: 3
             }).addTo(this.map);
             
+            console.log('Tile layer added');
+            
             // Setup layer controls
+            console.log('Setting up layer controls...');
             this._setupLayerControls();
             
             // Force map to recalculate size
             setTimeout(() => {
                 if (this.map) {
+                    console.log('Invalidating map size...');
                     this.map.invalidateSize();
                 }
             }, 100);
+            
+            console.log('_initializeMap completed');
         },
         
         _clearLayers: function() {
@@ -241,11 +359,16 @@ define([
         },
         
         _addDataToMap: function(data) {
+            console.log('_addDataToMap called with data:', data);
+            console.log('Categories to process:', Object.keys(data));
+            
             // Create layer groups and add markers for each category
             Object.keys(data).forEach(category => {
                 const points = data[category];
+                console.log(`Processing category '${category}' with ${points ? points.length : 0} points`);
                 
                 if (!points || points.length === 0) {
+                    console.warn(`  Skipping category '${category}' - no points`);
                     return;
                 }
                 
@@ -253,13 +376,21 @@ define([
                 const layerGroup = L.layerGroup();
                 
                 // Get color for this category
-                const color = this.layerConfigs[category]?.color || '#808080';
+                const defaultColor = this.layerConfigs[category]?.color || '#808080';
+                console.log(`  Default color for '${category}':`, defaultColor);
                 
                 // Add markers to the layer group
-                points.forEach(point => {
+                points.forEach((point, index) => {
+                    // Use custom color if provided, otherwise use default
+                    const color = point.customColor || defaultColor;
+                    if (index < 2) {
+                        console.log(`    Point ${index}:`, point, 'color:', color);
+                    }
                     const marker = this._createMarker(point, color);
                     marker.addTo(layerGroup);
                 });
+                
+                console.log(`  Added ${points.length} markers to layer group for '${category}'`);
                 
                 // Store layer group
                 this.layerGroups[category] = layerGroup;
@@ -270,8 +401,13 @@ define([
                 // Add to map if visible
                 if (this.layerVisibility[category] !== false) {
                     layerGroup.addTo(this.map);
+                    console.log(`  Layer '${category}' added to map (visible)`);
+                } else {
+                    console.log(`  Layer '${category}' created but not added to map (hidden)`);
                 }
             });
+            
+            console.log('_addDataToMap completed');
         },
         
         _createMarker: function(point, color) {
