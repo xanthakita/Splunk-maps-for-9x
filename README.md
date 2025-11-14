@@ -379,19 +379,25 @@ this.layerConfigs = {
 
 #### Change Map Tile Provider
 
-Edit `visualization.js`, line ~165:
+Edit `visualization.js`, line ~379:
 
 ```javascript
-L.tileLayer('https://upload.wikimedia.org/wikipedia/commons/thumb/8/87/Tissot_mercator.png/400px-Tissot_mercator.png', {
-    attribution: '&copy; OpenStreetMap contributors',
-    maxZoom: 19
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+    maxZoom: 19,
+    minZoom: 3
 }).addTo(this.map);
 ```
 
-Alternative providers:
-- **CartoDB Positron**: `https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEhho8g0FVgtxjkjUi6yjiTw78xg3kQMl97p4MGr9jGXAO6JOhyphenhyphenlOE5qvrnW07-WmAp1Zc2vO7Lys-XfzJR_BW1GRbzXog-mBqv7EG865a2BTnnGaOod_nphtOK3VYHjBPH5OHSCvQ/s523/mapsmania2.gif`
-- **CartoDB Dark**: `https://i.ytimg.com/vi/vUDcMY-srmk/sddefault.jpg`
-- **Stamen Terrain**: `https://developers.google.com/static/maps/documentation/tile/images/terrain_tiles_example.png`
+Alternative tile providers:
+- **OpenStreetMap (Default)**: `https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png`
+- **CartoDB Positron (Light)**: `https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png`
+- **CartoDB Dark Matter**: `https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png`
+- **OpenTopoMap**: `https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png`
+- **Stamen Terrain**: `https://stamen-tiles-{s}.a.ssl.fastly.net/terrain/{z}/{x}/{y}.jpg`
+- **Stamen Toner**: `https://stamen-tiles-{s}.a.ssl.fastly.net/toner/{z}/{x}/{y}.png`
+
+**Note**: Some tile providers may require attribution and have usage limits. Always check the provider's terms of service.
 
 ## Support & Contribution
 
