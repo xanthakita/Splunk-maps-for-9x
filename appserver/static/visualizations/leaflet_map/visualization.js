@@ -52,11 +52,13 @@ define([
             console.log('=== formatData called ===');
             console.log('Data object:', data);
             console.log('Config object:', config);
+            console.log('Data type:', typeof data);
+            console.log('Is array?:', Array.isArray(data));
             
             // Check if data exists
             if (!data) {
                 console.error('ERROR: data is null or undefined');
-                return { error: 'No data available - data object is null' };
+                return { error: 'No data available - data object is null or undefined. Please verify your search returns data.' };
             }
             
             // Log data structure
@@ -67,13 +69,27 @@ define([
             // Check if we have fields
             if (!data.fields) {
                 console.error('ERROR: data.fields is missing');
-                return { error: 'No data available - fields are missing' };
+                console.log('Available properties:', Object.keys(data));
+                return { error: 'No data available - fields property is missing. Data structure: ' + JSON.stringify(Object.keys(data)) };
+            }
+            
+            // Check if fields is an array
+            if (!Array.isArray(data.fields)) {
+                console.error('ERROR: data.fields is not an array, it is:', typeof data.fields);
+                return { error: 'No data available - fields is not an array. Type: ' + typeof data.fields };
             }
             
             // Check if we have rows
             if (!data.rows) {
                 console.error('ERROR: data.rows is missing');
-                return { error: 'No data available - rows are missing' };
+                console.log('Available properties:', Object.keys(data));
+                return { error: 'No data available - rows property is missing. Data structure: ' + JSON.stringify(Object.keys(data)) };
+            }
+            
+            // Check if rows is an array
+            if (!Array.isArray(data.rows)) {
+                console.error('ERROR: data.rows is not an array, it is:', typeof data.rows);
+                return { error: 'No data available - rows is not an array. Type: ' + typeof data.rows };
             }
             
             // Log field and row counts
@@ -82,8 +98,14 @@ define([
             
             // Check if rows is empty
             if (data.rows.length === 0) {
-                console.warn('WARNING: data.rows is empty');
-                return { error: 'No data available - no rows returned from search' };
+                console.warn('WARNING: data.rows is empty - search returned no results');
+                return { error: 'No data available - search returned no results. Please verify your search query returns data by adding "| table *" to see all fields.' };
+            }
+            
+            // Check if fields is empty
+            if (data.fields.length === 0) {
+                console.error('ERROR: data.fields is empty');
+                return { error: 'No data available - no fields defined. Please ensure your search returns fields.' };
             }
             
             // Get field names
@@ -106,7 +128,13 @@ define([
             
             // Check for required fields
             if (latIndex === -1 || lonIndex === -1) {
-                const errorMsg = 'Required fields not found. Please include latitude and longitude fields. Available fields: ' + fields.join(', ');
+                const errorMsg = 'Required fields not found. Need latitude and longitude fields.\n\n' +
+                                'Available fields: ' + fields.join(', ') + '\n\n' +
+                                'Accepted field names:\n' +
+                                '  Latitude: latitude, lat, Latitude, _geo_lat\n' +
+                                '  Longitude: longitude, lon, lng, Longitude, _geo_lon\n\n' +
+                                'TIP: Rename your fields using SPL:\n' +
+                                '  | rename your_lat_field AS latitude, your_lon_field AS longitude';
                 console.error('ERROR:', errorMsg);
                 return { error: errorMsg };
             }
@@ -114,12 +142,17 @@ define([
             // Log first row as sample
             if (data.rows.length > 0) {
                 console.log('Sample row (first row):', data.rows[0]);
+                console.log('  Values by field:');
+                fields.forEach((field, idx) => {
+                    console.log(\`    \${field}: \${data.rows[0][idx]} (type: \${typeof data.rows[0][idx]})\`);
+                });
             }
             
             // Process rows into layer groups
             const processedData = {};
             let validRows = 0;
             let invalidRows = 0;
+            const invalidReasons = [];
             
             data.rows.forEach((row, rowIndex) => {
                 const lat = parseFloat(row[latIndex]);
@@ -127,16 +160,27 @@ define([
                 
                 // Debug first few rows
                 if (rowIndex < 3) {
-                    console.log(`Row ${rowIndex}:`, row);
-                    console.log(`  lat (${fields[latIndex]}):`, row[latIndex], '-> parsed:', lat);
-                    console.log(`  lon (${fields[lonIndex]}):`, row[lonIndex], '-> parsed:', lon);
+                    console.log(\`Row \${rowIndex}:\`, row);
+                    console.log(\`  lat (\${fields[latIndex]}):\`, row[latIndex], '-> parsed:', lat, '(valid:', !isNaN(lat) && lat >= -90 && lat <= 90, ')');
+                    console.log(\`  lon (\${fields[lonIndex]}):\`, row[lonIndex], '-> parsed:', lon, '(valid:', !isNaN(lon) && lon >= -180 && lon <= 180, ')');
                 }
                 
                 // Skip invalid coordinates
                 if (isNaN(lat) || isNaN(lon)) {
                     invalidRows++;
                     if (rowIndex < 3) {
-                        console.warn(`  SKIPPED: Invalid coordinates`);
+                        console.warn(\`  SKIPPED: Invalid coordinates (NaN)\`);
+                        invalidReasons.push(\`Row \${rowIndex}: coordinates are NaN\`);
+                    }
+                    return;
+                }
+                
+                // Check coordinate ranges
+                if (lat < -90 || lat > 90 || lon < -180 || lon > 180) {
+                    invalidRows++;
+                    if (rowIndex < 3) {
+                        console.warn(\`  SKIPPED: Coordinates out of range\`);
+                        invalidReasons.push(\`Row \${rowIndex}: coordinates out of range (lat: \${lat}, lon: \${lon})\`);
                     }
                     return;
                 }
@@ -178,16 +222,30 @@ define([
             });
             
             console.log('Processing summary:');
+            console.log('  Total rows:', data.rows.length);
             console.log('  Valid rows:', validRows);
             console.log('  Invalid rows:', invalidRows);
+            if (invalidReasons.length > 0) {
+                console.log('  Invalid row examples:', invalidReasons);
+            }
             console.log('  Categories found:', Object.keys(processedData));
             Object.keys(processedData).forEach(cat => {
-                console.log(`    ${cat}: ${processedData[cat].length} points`);
+                console.log(\`    \${cat}: \${processedData[cat].length} points\`);
             });
             
             // Check if we got any valid data
             if (validRows === 0) {
-                const errorMsg = 'No valid data points found. All rows had invalid coordinates.';
+                const errorMsg = 'No valid data points found.\n\n' +
+                                'Reasons:\n' + 
+                                (invalidRows > 0 ? 
+                                    \`- All \${invalidRows} rows had invalid coordinates\n\` + 
+                                    '- Check that latitude is between -90 and 90\n' +
+                                    '- Check that longitude is between -180 and 180\n' +
+                                    '- Ensure coordinates are numbers, not strings\n\n' +
+                                    'TIP: Convert to numbers in SPL:\n' +
+                                    '  | eval latitude=tonumber(latitude), longitude=tonumber(longitude)'
+                                    : '- No data passed validation'
+                                );
                 console.error('ERROR:', errorMsg);
                 return { error: errorMsg };
             }
@@ -196,7 +254,7 @@ define([
             return processedData;
         },
         
-        _findFieldIndex: function(fields, possibleNames) {
+                _findFieldIndex: function(fields, possibleNames) {
             for (let i = 0; i < possibleNames.length; i++) {
                 const index = fields.findIndex(f => 
                     f.toLowerCase() === possibleNames[i].toLowerCase()
@@ -318,7 +376,7 @@ define([
             
             // Add OpenStreetMap tile layer
             console.log('Adding tile layer...');
-            L.tileLayer('https://upload.wikimedia.org/wikipedia/commons/thumb/8/87/Tissot_mercator.png/400px-Tissot_mercator.png', {
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
                 attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
                 maxZoom: 19,
                 minZoom: 3
