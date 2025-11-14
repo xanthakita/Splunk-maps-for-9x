@@ -1,0 +1,8 @@
+
+[]
+access = read : [ * ], write : [ admin ]
+export = system
+
+[visualizations/leaflet_map]
+access = read : [ * ], write : [ admin ]
+export = system

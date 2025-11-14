@@ -1,0 +1,27 @@
+
+# Splunk app specific
+local/
+local.meta
+*.pyc
+*.pyo
+__pycache__/
+
+# OS specific
+.DS_Store
+Thumbs.db
+.directory
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Logs
+*.log
+
+# Package files
+*.tar.gz
+*.tgz
+*.spl
