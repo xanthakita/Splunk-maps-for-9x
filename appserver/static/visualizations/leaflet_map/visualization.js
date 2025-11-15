@@ -144,7 +144,7 @@ define([
                 console.log('Sample row (first row):', data.rows[0]);
                 console.log('  Values by field:');
                 fields.forEach((field, idx) => {
-                    console.log(\`    \${field}: \${data.rows[0][idx]} (type: \${typeof data.rows[0][idx]})\`);
+                    console.log(`    ${field}: ${data.rows[0][idx]} (type: ${typeof data.rows[0][idx]})`);
                 });
             }
             
@@ -160,17 +160,17 @@ define([
                 
                 // Debug first few rows
                 if (rowIndex < 3) {
-                    console.log(\`Row \${rowIndex}:\`, row);
-                    console.log(\`  lat (\${fields[latIndex]}):\`, row[latIndex], '-> parsed:', lat, '(valid:', !isNaN(lat) && lat >= -90 && lat <= 90, ')');
-                    console.log(\`  lon (\${fields[lonIndex]}):\`, row[lonIndex], '-> parsed:', lon, '(valid:', !isNaN(lon) && lon >= -180 && lon <= 180, ')');
+                    console.log(`Row ${rowIndex}:`, row);
+                    console.log(`  lat (${fields[latIndex]}):`, row[latIndex], '-> parsed:', lat, '(valid:', !isNaN(lat) && lat >= -90 && lat <= 90, ')');
+                    console.log(`  lon (${fields[lonIndex]}):`, row[lonIndex], '-> parsed:', lon, '(valid:', !isNaN(lon) && lon >= -180 && lon <= 180, ')');
                 }
                 
                 // Skip invalid coordinates
                 if (isNaN(lat) || isNaN(lon)) {
                     invalidRows++;
                     if (rowIndex < 3) {
-                        console.warn(\`  SKIPPED: Invalid coordinates (NaN)\`);
-                        invalidReasons.push(\`Row \${rowIndex}: coordinates are NaN\`);
+                        console.warn(`  SKIPPED: Invalid coordinates (NaN)`);
+                        invalidReasons.push(`Row ${rowIndex}: coordinates are NaN`);
                     }
                     return;
                 }
@@ -179,8 +179,8 @@ define([
                 if (lat < -90 || lat > 90 || lon < -180 || lon > 180) {
                     invalidRows++;
                     if (rowIndex < 3) {
-                        console.warn(\`  SKIPPED: Coordinates out of range\`);
-                        invalidReasons.push(\`Row \${rowIndex}: coordinates out of range (lat: \${lat}, lon: \${lon})\`);
+                        console.warn(`  SKIPPED: Coordinates out of range`);
+                        invalidReasons.push(`Row ${rowIndex}: coordinates out of range (lat: ${lat}, lon: ${lon})`);
                     }
                     return;
                 }
@@ -230,7 +230,7 @@ define([
             }
             console.log('  Categories found:', Object.keys(processedData));
             Object.keys(processedData).forEach(cat => {
-                console.log(\`    \${cat}: \${processedData[cat].length} points\`);
+                console.log(`    ${cat}: ${processedData[cat].length} points`);
             });
             
             // Check if we got any valid data
@@ -238,7 +238,7 @@ define([
                 const errorMsg = 'No valid data points found.\n\n' +
                                 'Reasons:\n' + 
                                 (invalidRows > 0 ? 
-                                    \`- All \${invalidRows} rows had invalid coordinates\n\` + 
+                                    `- All ${invalidRows} rows had invalid coordinates\n` + 
                                     '- Check that latitude is between -90 and 90\n' +
                                     '- Check that longitude is between -180 and 180\n' +
                                     '- Ensure coordinates are numbers, not strings\n\n' +
@@ -659,6 +659,25 @@ define([
             if (this.map) {
                 this.map.invalidateSize();
             }
+        },
+        
+        // Handle configuration changes - required for Splunk 9.x compatibility
+        onConfigChange: function(configChanges, previousConfig) {
+            console.log('=== onConfigChange called ===');
+            console.log('Config changes:', configChanges);
+            console.log('Previous config:', previousConfig);
+            
+            // Call parent implementation first
+            if (SplunkVisualizationBase.prototype.onConfigChange) {
+                SplunkVisualizationBase.prototype.onConfigChange.apply(this, arguments);
+            }
+            
+            // Handle any visualization-specific configuration changes here
+            // For example, you could update map settings based on config
+            // Currently, this visualization doesn't have custom configuration options
+            // but this method is required by the framework
+            
+            console.log('=== onConfigChange completed ===');
         }
     });
 });
