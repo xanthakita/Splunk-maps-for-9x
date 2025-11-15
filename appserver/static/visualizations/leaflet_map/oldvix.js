@@ -352,42 +352,14 @@ define([
             console.log('_initializeMap called');
             console.log('this.$el:', this.$el);
             
-            // Check if container exists
-            let mapContainer = this.$el.find('#leaflet-map');
+            const mapContainer = this.$el.find('#leaflet-map');
             console.log('Map container found:', mapContainer.length > 0, mapContainer);
             
-            // If container doesn't exist, create it
             if (mapContainer.length === 0) {
-                console.log('Map container not found, creating it...');
-                
-                // Create the container structure matching formatter.html
-                const containerHTML = `
-                    <div id="map-container">
-                        <div id="leaflet-map"></div>
-                        <div id="layer-controls">
-                            <div class="controls-header">
-                                <h3>Map Layers</h3>
-                                <button id="toggle-controls" class="toggle-btn">▼</button>
-                            </div>
-                            <div id="controls-content" class="controls-content">
-                                <!-- Layer checkboxes will be dynamically generated here -->
-                            </div>
-                        </div>
-                    </div>
-                `;
-                
-                // Append to this.$el
-                this.$el.html(containerHTML);
-                
-                // Try to find the container again
-                mapContainer = this.$el.find('#leaflet-map');
-                console.log('Map container created, found:', mapContainer.length > 0);
-                
-                if (mapContainer.length === 0) {
-                    console.error('ERROR: Failed to create map container!');
-                    this._showError('Failed to create map container');
-                    return;
-                }
+                console.error('ERROR: Map container not found!');
+                console.log('Available elements in this.$el:', this.$el.html());
+                this._showError('Map container not found');
+                return;
             }
             
             console.log('Creating Leaflet map...');
